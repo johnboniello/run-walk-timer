@@ -27,7 +27,9 @@ public class MainActivity extends Activity {
             getWindow().setDecorFitsSystemWindows(false);
             root.setOnApplyWindowInsetsListener((v, insets) -> {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                int keyboard = insets.getInsets(WindowInsets.Type.ime()).bottom;
+                // Shrink the page above the keyboard so the field being edited stays visible.
+                v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, keyboard));
                 return WindowInsets.CONSUMED;
             });
         }

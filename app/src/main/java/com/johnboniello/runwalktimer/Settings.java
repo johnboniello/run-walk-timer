@@ -21,10 +21,10 @@ final class Settings {
             s.run = Math.max(5, o.optInt("run", s.run));
             s.walk = Math.max(5, o.optInt("walk", s.walk));
             s.eatOn = o.optBoolean("eatOn", s.eatOn);
-            s.eatEvery = Math.max(60, o.optInt("eatEvery", s.eatEvery));
-            s.eatWin = Math.max(10, o.optInt("eatWin", s.eatWin));
+            s.eatEvery = Math.max(10, o.optInt("eatEvery", s.eatEvery));
+            s.eatWin = Math.max(5, o.optInt("eatWin", s.eatWin));
             s.drinkOn = o.optBoolean("drinkOn", s.drinkOn);
-            s.drinkEvery = Math.max(60, o.optInt("drinkEvery", s.drinkEvery));
+            s.drinkEvery = Math.max(10, o.optInt("drinkEvery", s.drinkEvery));
         } catch (JSONException ignored) {
         }
         return s;

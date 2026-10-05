@@ -92,6 +92,7 @@ legend { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transfo
 .check { display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .check input { width: 20px; height: 20px; accent-color: var(--fg); }
 .err { color: var(--run); font-size: .85rem; margin: 0; }
+.dur input.invalid { border-color: var(--run); box-shadow: 0 0 0 1px var(--run); }
 .lockmsg { font-size: .85rem; color: var(--muted); margin: 0; }
 
 .banner { position: fixed; left: 16px; right: 16px; top: 16px; z-index: 10; max-width: 32rem; margin: 0 auto; padding: 18px; border-radius: 16px; text-align: center; font-family: var(--display); font-weight: 800; font-size: 2.4rem; text-transform: uppercase; letter-spacing: .04em; color: var(--on-phase); background: var(--eat); box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
@@ -164,7 +165,7 @@ legend { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transfo
 <script>
 (() => {
   const DEFAULTS = { run: 120, walk: 30, eatOn: true, eatEvery: 2700, eatWin: 300, drinkOn: true, drinkEvery: 900 };
-  const DURS = { run: ["Run", 5], walk: ["Walk", 5], eatEvery: ["Time until eating", 60], eatWin: ["Eating window", 10], drinkEvery: ["Drink reminder", 60] };
+  const DURS = { run: ["Run", 5], walk: ["Walk", 5], eatEvery: ["Time until eating", 10], eatWin: ["Eating window", 5], drinkEvery: ["Drink reminder", 10] };
   const KEY = "rwft-settings-v1";
   const $ = id => document.getElementById(id);
   const Native = window.Native;
@@ -280,13 +281,23 @@ legend { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transfo
       const m = parseInt($(k + "-m").value || "0", 10), s = parseInt($(k + "-s").value || "0", 10);
       const v = (isNaN(m) ? 0 : m) * 60 + (isNaN(s) ? 0 : s);
       const [name, min] = DURS[k];
-      if (v < min) errs.push(`${name} needs to be at least ${min < 60 ? min + " seconds" : min / 60 + " minute"}.`);
+      const bad = v < min;
+      $(k + "-m").classList.toggle("invalid", bad); $(k + "-s").classList.toggle("invalid", bad);
+      if (bad) errs.push(`${name} needs to be at least ${min} seconds. Still using ${fmt(S[k])}.`);
       else next[k] = v;
     }
     $("err").hidden = !errs.length; $("err").textContent = errs.join(" ");
     S = next; save(); poll();
   });
   $("settings").addEventListener("submit", e => e.preventDefault());
+
+  // Keep the field being typed in above the keyboard.
+  const revealFocused = () => {
+    const a = document.activeElement;
+    if (a && a.tagName === "INPUT") a.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+  document.addEventListener("focusin", () => setTimeout(revealFocused, 350));
+  window.addEventListener("resize", revealFocused);
 
   fillForm();
   poll();
