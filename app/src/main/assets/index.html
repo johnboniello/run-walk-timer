@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run/Walk Timer</title>
+<meta name="color-scheme" content="light dark">
+<style>
+@font-face { font-family: "Big Shoulders Display"; font-weight: 600 800; font-display: block; src: url(fonts/big-shoulders-display.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 400; font-display: block; src: url(fonts/barlow-400.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 500; font-display: block; src: url(fonts/barlow-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-display: block; src: url(fonts/barlow-600.woff2) format("woff2"); }
+/* Layout: one phone-width column read at a glance mid-stride; the phase panel is the whole point, fuel and drink sit under it, settings below the fold. */
+:root {
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --fg: #141a18;
+  --muted: #5b6763;
+  --line: #d5dcd8;
+  --run: #c9381f;      /* tartan track */
+  --walk: #13795f;
+  --eat: #b77905;
+  --drink: #1f63c8;
+  --on-phase: #ffffff;
+  --display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1211; --surface: #171d1b; --fg: #eaf0ed; --muted: #94a19c; --line: #2a3330;
+    --run: #ff6d50; --walk: #37c79c; --eat: #f2b13a; --drink: #6aa2ff; --on-phase: #0b0f0e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1211; --surface: #171d1b; --fg: #eaf0ed; --muted: #94a19c; --line: #2a3330;
+  --run: #ff6d50; --walk: #37c79c; --eat: #f2b13a; --drink: #6aa2ff; --on-phase: #0b0f0e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.45; }
+.wrap { max-width: 34rem; margin: 0 auto; padding-inline: 16px; padding-block: 12px 32px; display: grid; gap: 14px; }
+
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 1.6rem; letter-spacing: .02em; text-transform: uppercase; margin: 0; }
+.total { display: flex; align-items: baseline; gap: 8px; }
+.lbl { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+#total { font-family: var(--display); font-weight: 600; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+
+.phase { background: var(--run); color: var(--on-phase); border-radius: 18px; padding: 18px 20px 20px; display: grid; gap: 6px; transition: background-color .3s; }
+.phase.walk { background: var(--walk); }
+.phase-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.phase-name { font-family: var(--display); font-weight: 800; font-size: 2.6rem; line-height: 1; text-transform: uppercase; letter-spacing: .04em; }
+.interval { font-weight: 600; font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.phase-time { font-family: var(--display); font-weight: 800; font-size: clamp(6rem, 34vw, 10rem); line-height: .9; font-variant-numeric: tabular-nums; text-align: center; padding-block: 6px; }
+.phase.final .phase-time { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
+.bar { height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--on-phase) 25%, transparent); overflow: hidden; }
+#phaseBar { height: 100%; width: 0; background: var(--on-phase); }
+.next { font-weight: 500; font-size: .95rem; opacity: .9; }
+
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 2px; min-width: 0; }
+.card .lbl { display: flex; align-items: center; gap: 6px; }
+.card .lbl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.card.eat { --dot: var(--eat); }
+.card.drink { --dot: var(--drink); }
+.card-val { font-family: var(--display); font-weight: 800; font-size: 2.4rem; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.card-sub { font-size: .85rem; color: var(--muted); }
+.card.active { background: var(--dot); border-color: var(--dot); color: var(--on-phase); }
+.card.active .lbl, .card.active .card-sub { color: var(--on-phase); }
+.card.active .lbl::before { background: var(--on-phase); }
+.card.off .card-val { color: var(--muted); }
+
+.controls { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+.btn { font: 600 1.15rem var(--body); padding: 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-family: var(--display); font-weight: 800; font-size: 1.6rem; letter-spacing: .06em; text-transform: uppercase; padding: 12px; }
+.btn.armed { border-color: var(--run); color: var(--run); }
+.btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--drink); outline-offset: 2px; }
+.note { margin: 0; font-size: .85rem; color: var(--muted); }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+summary { padding: 14px 16px; font-weight: 600; cursor: pointer; }
+.settings { padding: 0 16px 16px; display: grid; gap: 18px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
+fieldset:disabled { opacity: .55; }
+legend { font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row > label:first-child { flex: 1 1 10rem; }
+.dur { display: flex; align-items: center; gap: 4px; font-size: .85rem; color: var(--muted); }
+.dur input { width: 4.2rem; font: 500 1.05rem var(--body); padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); text-align: right; font-variant-numeric: tabular-nums; }
+.check { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.check input { width: 20px; height: 20px; accent-color: var(--fg); }
+.err { color: var(--run); font-size: .85rem; margin: 0; }
+.lockmsg { font-size: .85rem; color: var(--muted); margin: 0; }
+
+.banner { position: fixed; left: 16px; right: 16px; top: 16px; z-index: 10; max-width: 32rem; margin: 0 auto; padding: 18px; border-radius: 16px; text-align: center; font-family: var(--display); font-weight: 800; font-size: 2.4rem; text-transform: uppercase; letter-spacing: .04em; color: var(--on-phase); background: var(--eat); box-shadow: 0 10px 30px rgb(0 0 0 / .25); }
+.banner.drink { background: var(--drink); }
+@media (prefers-reduced-motion: reduce) { .phase.final .phase-time { animation: none; } .phase { transition: none; } }
+@media (max-width: 360px) { .cards { grid-template-columns: 1fr; } }
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1>Run/Walk Fuel Timer</h1>
+    <div class="total"><span class="lbl">Total</span><span id="total">0:00</span></div>
+  </header>
+
+  <section id="phase" class="phase">
+    <div class="phase-row"><span id="phaseName" class="phase-name">Run</span><span id="intervalNo" class="interval">Interval 1</span></div>
+    <div id="phaseTime" class="phase-time">2:00</div>
+    <div class="bar"><div id="phaseBar"></div></div>
+    <div id="nextUp" class="next">Next: walk 0:30</div>
+  </section>
+
+  <div class="cards">
+    <section id="eatCard" class="card eat">
+      <div id="eatLbl" class="lbl">Next fuel</div>
+      <div id="eatVal" class="card-val">45:00</div>
+      <div id="eatSub" class="card-sub">5:00 eating window</div>
+    </section>
+    <section id="drinkCard" class="card drink">
+      <div class="lbl">Next drink</div>
+      <div id="drinkVal" class="card-val">15:00</div>
+      <div class="card-sub">Reminder only</div>
+    </section>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn" class="btn primary" type="button">Start</button>
+    <button id="resetBtn" class="btn" type="button">Reset</button>
+  </div>
+  <p id="note" class="note">Keeps running with the screen off. Cues play over your music and turn it down while they play. Pause or check the time from the notification.</p>
+
+  <details id="settingsBox">
+    <summary>Settings</summary>
+    <form id="settings" class="settings" novalidate>
+      <p id="lockMsg" class="lockmsg" hidden>Settings are locked while a workout is in progress. Reset to change them.</p>
+      <fieldset id="fsAll">
+        <legend>Run / walk</legend>
+        <div class="row"><label for="run-m">Run</label><span class="dur"><input id="run-m" type="number" inputmode="numeric" min="0" aria-label="Run minutes"> min <input id="run-s" type="number" inputmode="numeric" min="0" max="59" aria-label="Run seconds"> sec</span></div>
+        <div class="row"><label for="walk-m">Walk</label><span class="dur"><input id="walk-m" type="number" inputmode="numeric" min="0" aria-label="Walk minutes"> min <input id="walk-s" type="number" inputmode="numeric" min="0" max="59" aria-label="Walk seconds"> sec</span></div>
+        <p class="lockmsg">Beeps on 5, 4, 3, 2, 1, then a long beep and a spoken "Run" or "Walk" on 0.</p>
+
+        <legend style="margin-top:12px">Eating</legend>
+        <label class="check"><input id="eatOn" type="checkbox"> Eating reminders</label>
+        <div class="row"><label for="eatEvery-m">Time until eating</label><span class="dur"><input id="eatEvery-m" type="number" inputmode="numeric" min="0" aria-label="Time until eating, minutes"> min <input id="eatEvery-s" type="number" inputmode="numeric" min="0" max="59" aria-label="Time until eating, seconds"> sec</span></div>
+        <div class="row"><label for="eatWin-m">Eating window</label><span class="dur"><input id="eatWin-m" type="number" inputmode="numeric" min="0" aria-label="Eating window minutes"> min <input id="eatWin-s" type="number" inputmode="numeric" min="0" max="59" aria-label="Eating window seconds"> sec</span></div>
+        <p class="lockmsg">Says "Start eating", runs the eating window, says "Stop eating", then the countdown to the next eating window starts again.</p>
+
+        <legend style="margin-top:12px">Drinking</legend>
+        <label class="check"><input id="drinkOn" type="checkbox"> Drink reminders</label>
+        <div class="row"><label for="drinkEvery-m">Remind every</label><span class="dur"><input id="drinkEvery-m" type="number" inputmode="numeric" min="0" aria-label="Drink reminder minutes"> min <input id="drinkEvery-s" type="number" inputmode="numeric" min="0" max="59" aria-label="Drink reminder seconds"> sec</span></div>
+      </fieldset>
+      <p id="err" class="err" hidden></p>
+      <button id="testBtn" class="btn" type="button">Test sounds</button>
+    </form>
+  </details>
+</main>
+<div id="banner" class="banner" hidden></div>
+
+<script>
+(() => {
+  const DEFAULTS = { run: 120, walk: 30, eatOn: true, eatEvery: 2700, eatWin: 300, drinkOn: true, drinkEvery: 900 };
+  const DURS = { run: ["Run", 5], walk: ["Walk", 5], eatEvery: ["Time until eating", 60], eatWin: ["Eating window", 10], drinkEvery: ["Drink reminder", 60] };
+  const KEY = "rwft-settings-v1";
+  const $ = id => document.getElementById(id);
+  const Native = window.Native;
+
+  // S = the settings in the form. The workout in progress may use its own (saved when it started).
+  let S = { ...DEFAULTS };
+  try { const raw = localStorage.getItem(KEY); if (raw) S = { ...DEFAULTS, ...JSON.parse(raw) }; } catch {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+
+  const fmt = sec => {
+    sec = Math.max(0, Math.round(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  let bannerTimer;
+  function banner(text, cls, ms = 5000) {
+    const b = $("banner");
+    b.textContent = text; b.className = "banner " + cls; b.hidden = false;
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => { b.hidden = true; }, ms);
+  }
+
+  function render(el, A, running) {
+    $("total").textContent = fmt(Math.floor(el));
+    const cyc = A.run + A.walk, pos = el % cyc, isRun = pos < A.run;
+    const len = isRun ? A.run : A.walk, rem = isRun ? A.run - pos : cyc - pos;
+    const ph = $("phase");
+    ph.classList.toggle("walk", !isRun);
+    ph.classList.toggle("final", running && rem <= 5);
+    $("phaseName").textContent = isRun ? "Run" : "Walk";
+    $("phaseTime").textContent = fmt(Math.ceil(rem - 1e-6));
+    $("phaseBar").style.width = ((1 - rem / len) * 100).toFixed(2) + "%";
+    $("intervalNo").textContent = "Interval " + (Math.floor(el / cyc) + 1);
+    $("nextUp").textContent = isRun ? `Next: walk ${fmt(A.walk)}` : `Next: run ${fmt(A.run)}`;
+
+    const ec = $("eatCard");
+    if (!A.eatOn) {
+      ec.className = "card eat off";
+      $("eatLbl").textContent = "Fuel"; $("eatVal").textContent = "Off"; $("eatSub").textContent = "Turn on in settings";
+    } else {
+      const E = A.eatEvery + A.eatWin, pe = el % E, eating = pe >= A.eatEvery;
+      ec.className = "card eat" + (eating ? " active" : "");
+      $("eatLbl").textContent = eating ? "Eating now" : "Next fuel";
+      $("eatVal").textContent = fmt(Math.ceil((eating ? E - pe : A.eatEvery - pe) - 1e-6));
+      $("eatSub").textContent = eating ? "left in eating window" : `${fmt(A.eatWin)} eating window`;
+    }
+    const dc = $("drinkCard");
+    dc.className = "card drink" + (A.drinkOn ? "" : " off");
+    $("drinkVal").textContent = A.drinkOn ? fmt(Math.ceil(A.drinkEvery - el % A.drinkEvery - 1e-6)) : "Off";
+  }
+
+  // ---- read the workout from the native timer ----
+  let state = { elapsed: 0, running: false, started: false };
+  let prev = null; // last whole second seen, for on-screen banners
+  function poll() {
+    if (Native) { try { state = JSON.parse(Native.getState()); } catch {} }
+    const A = state.started && state.settings ? state.settings : S;
+    const el = state.elapsed, sec = Math.floor(el);
+
+    if (state.running && prev !== null && sec > prev && sec - prev <= 3) {
+      for (let s = prev + 1; s <= sec; s++) {
+        if (A.eatOn) {
+          const pe = s % (A.eatEvery + A.eatWin);
+          if (pe === A.eatEvery) banner("Start eating", "eat", Math.min(8000, A.eatWin * 1000));
+          else if (pe === 0) banner("Stop eating", "eat");
+        }
+        if (A.drinkOn && s % A.drinkEvery === 0) banner("Drink", "drink");
+      }
+    }
+    prev = state.running ? sec : null;
+
+    $("startBtn").textContent = state.running ? "Pause" : state.started ? "Resume" : "Start";
+    $("fsAll").disabled = state.started;
+    $("lockMsg").hidden = !state.started;
+    if (!state.started) $("banner").hidden = true;
+    render(el, A, state.running);
+  }
+  setInterval(() => { if (!document.hidden) poll(); }, 200);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { prev = null; poll(); } });
+
+  // ---- controls ----
+  $("startBtn").addEventListener("click", () => {
+    if (!Native) return;
+    if (state.running) Native.pause(); else Native.start(JSON.stringify(S));
+    setTimeout(poll, 50);
+  });
+
+  let armTimer;
+  $("resetBtn").addEventListener("click", () => {
+    const btn = $("resetBtn");
+    if (state.started && !btn.classList.contains("armed")) {
+      btn.classList.add("armed"); btn.textContent = "Tap again";
+      armTimer = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = "Reset"; }, 3000);
+      return;
+    }
+    clearTimeout(armTimer); btn.classList.remove("armed"); btn.textContent = "Reset";
+    if (Native) Native.reset();
+    setTimeout(poll, 100);
+  });
+
+  $("testBtn").addEventListener("click", () => { if (Native) Native.test(); });
+
+  // ---- settings form ----
+  function fillForm() {
+    for (const k in DURS) { $(k + "-m").value = Math.floor(S[k] / 60); $(k + "-s").value = S[k] % 60; }
+    $("eatOn").checked = S.eatOn; $("drinkOn").checked = S.drinkOn;
+  }
+  $("settings").addEventListener("input", () => {
+    const next = { ...S, eatOn: $("eatOn").checked, drinkOn: $("drinkOn").checked };
+    const errs = [];
+    for (const k in DURS) {
+      const m = parseInt($(k + "-m").value || "0", 10), s = parseInt($(k + "-s").value || "0", 10);
+      const v = (isNaN(m) ? 0 : m) * 60 + (isNaN(s) ? 0 : s);
+      const [name, min] = DURS[k];
+      if (v < min) errs.push(`${name} needs to be at least ${min < 60 ? min + " seconds" : min / 60 + " minute"}.`);
+      else next[k] = v;
+    }
+    $("err").hidden = !errs.length; $("err").textContent = errs.join(" ");
+    S = next; save(); poll();
+  });
+  $("settings").addEventListener("submit", e => e.preventDefault());
+
+  fillForm();
+  poll();
+})();
+</script>
+</body>
+</html>
